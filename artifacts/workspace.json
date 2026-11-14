@@ -1,0 +1,17 @@
+{
+  "root": "/home/dev/feedback/uid17887",
+  "B": "/home/dev/feedback/uid17887",
+  "sha": "722342d9dcdd9a08e284d784f7420cbfc23b7b04",
+  "wslDistro": "Ubuntu-26.04",
+  "source": {
+    "owner": "log2timeline",
+    "repo": "plaso",
+    "sha": "722342d9dcdd9a08e284d784f7420cbfc23b7b04"
+  },
+  "fork": {
+    "owner": "Rrr119",
+    "repo": "plaso",
+    "cloneUrl": "https://github.com/Rrr119/plaso.git"
+  },
+  "at": "2026-11-14T08:49:28.037Z"
+}

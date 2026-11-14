@@ -290,6 +290,7 @@ windows_typed_urls_time | Parser for Windows Explorer typed URLs time Registry d
 windows_usb_devices | Parser for Windows USB device Registry data.
 windows_usbstor_devices | Parser for Windows USB Plug And Play Manager USBStor Registry data.
 windows_version | Parser for Windows version (product) Registry data.
+windefender | Parser for Windows Defender detection and quarantine Registry data.
 winlogon | Parser for Windows log-on Registry data.
 winrar_mru | Parser for WinRAR History Registry data.
 winreg_default | Parser for Windows Registry data.

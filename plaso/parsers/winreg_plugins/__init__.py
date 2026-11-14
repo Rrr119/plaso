@@ -30,6 +30,7 @@ from plaso.parsers.winreg_plugins import typedurlstime
 from plaso.parsers.winreg_plugins import usb
 from plaso.parsers.winreg_plugins import usbstor
 from plaso.parsers.winreg_plugins import userassist
+from plaso.parsers.winreg_plugins import windefender
 from plaso.parsers.winreg_plugins import windows_version
 from plaso.parsers.winreg_plugins import winlogon
 from plaso.parsers.winreg_plugins import winrar

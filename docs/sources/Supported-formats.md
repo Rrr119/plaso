@@ -68,6 +68,7 @@ File System Format support is provided by [dfVFS](https://dfvfs.readthedocs.io/e
 * [Windows Prefetch files](https://forensics.wiki/windows_prefetch_file_format)
 * [Windows Recycle bin](https://forensics.wiki/windows/#recyclebin) (info2 and $i/$r)
 * [Windows NT Registry File (REGF)](https://forensics.wiki/windows_nt_registry_file_(regf)) using [libregf](https://github.com/libyal/libregf)
+* Windows Defender detection history and quarantine Registry data
 * [Windows Shortcut File (LNK) format](https://forensics.wiki/lnk) using [liblnk](https://github.com/libyal/liblnk) (including shell item support)
 * [Windows XML Event Log (EVTX)](https://forensics.wiki/windows_xml_event_log_(evtx)) using [libevtx](https://github.com/libyal/libevtx)
 

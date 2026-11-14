@@ -17,17 +17,23 @@ class WindowsDefenderHistoryEventData(events.EventData):
     """Windows Defender scan DetectionHistory event data.
 
     Attributes:
+      action (str): action taken on the threat, such as "Quarantined".
+      action_code (int): threat status code that describes the action.
+      action_taken (str): action taken on the threat, alias of action.
       additional_filenames (list[str]): locations of additional detected files.
       category (int): category of the threat.
       container_filenames (list[str]): location of files detected inside a
           container.
       filename (str): name of the file that the threat was detected in.
+      file_path (str): path of the file that the threat was detected in.
       host_and_user (str): name of the host and user in "DOMAIN\\USER" format.
       initial_detection_time (dfdatetime.DateTimeValues): date and time the
           threat was first detected.
       last_threat_status_change_time (dfdatetime.DateTimeValues): date and time
           the status of the threat last changed.
       process (str): name of the process that caused the detection.
+      quarantine_id (str): identifier of the quarantine entry.
+      quarantine_identifier (str): identifier of the quarantine entry.
       recorded_time (dfdatetime.DateTimeValues): date and time the log entry
           was recorded.
       remediation_account (str): name of the account under which the threat was
@@ -47,14 +53,20 @@ class WindowsDefenderHistoryEventData(events.EventData):
     def __init__(self):
         """Initializes event data."""
         super().__init__(data_type=self.DATA_TYPE)
+        self.action = None
+        self.action_code = None
+        self.action_taken = None
         self.additional_filenames = None
         self.category = None
         self.container_filenames = None
         self.filename = None
+        self.file_path = None
         self.host_and_user = None
         self.initial_detection_time = None
         self.last_threat_status_change_time = None
         self.process = None
+        self.quarantine_id = None
+        self.quarantine_identifier = None
         self.recorded_time = None
         self.remediation_account = None
         self.remediation_time = None
@@ -92,6 +104,7 @@ class WinDefenderHistoryParser(
             4: "Threat tracking data size",
             5: "Threat tracking data",
             6: "Last threat status change time",
+            9: "Quarantine identifier",
             12: "Domain user1",
             14: "Process name",
             18: "Initial detection time",
@@ -112,6 +125,89 @@ class WinDefenderHistoryParser(
     _VALUE_DATA_TYPES_INTEGER = frozenset(
         [0x00000000, 0x00000005, 0x00000006, 0x00000008]
     )
+
+    _THREAT_ATTRIBUTE_ALIASES = {
+        "Category": ("Category", "CategoryID", "ThreatCategory"),
+        "Domain user1": (
+            "DomainUser",
+            "Domain user1",
+            "ThreatTrackingDomainUser",
+        ),
+        "Domain user2": (
+            "Domain user2",
+            "RemediationUser",
+            "ThreatTrackingRemediationUser",
+        ),
+        "Initial detection time": (
+            "Initial detection time",
+            "InitialDetectionTime",
+            "ThreatTrackingInitialDetectionTime",
+        ),
+        "Last threat status change time": (
+            "Last threat status change time",
+            "LastThreatStatusChangeTime",
+            "ThreatTrackingLastThreatStatusChangeTime",
+        ),
+        "Process name": (
+            "ProcessName",
+            "Process name",
+            "ThreatTrackingProcessName",
+        ),
+        "Quarantine identifier": (
+            "Quarantine identifier",
+            "QuarantineEntry",
+            "QuarantineEntryID",
+            "QuarantineGuid",
+            "QuarantineGUID",
+            "QuarantineID",
+            "QuarantineId",
+            "ThreatTrackingQuarantineId",
+        ),
+        "Remediation time": (
+            "RemediationTime",
+            "Remediation time",
+            "ThreatTrackingRemediationTime",
+        ),
+        "Severity": ("Severity", "SeverityID", "ThreatSeverity"),
+        "Threat identifier": (
+            "Threat identifier",
+            "ThreatID",
+            "ThreatId",
+            "ThreatTrackingThreatId",
+        ),
+        "Threat name": (
+            "Threat name",
+            "ThreatName",
+            "ThreatTrackingThreatName",
+        ),
+        "Threat status": ("Threat status", "ThreatStatus", "ThreatStatusID"),
+        "ThreatTrackingSha256": (
+            "SHA256",
+            "ThreatTrackingSha256",
+            "ThreatTrackingSHA256",
+        ),
+        "ThreatTrackingStartTime": (
+            "RecordedTime",
+            "ThreatTrackingStartTime",
+            "ThreatTrackingStartTimeUtc",
+        ),
+    }
+
+    _THREAT_STATUS_ACTIONS = {
+        0: "Unknown",
+        1: "Detected",
+        2: "Cleaned",
+        3: "Quarantined",
+        4: "Removed",
+        5: "Allowed",
+        6: "Blocked",
+        102: "Clean failed",
+        103: "Quarantine failed",
+        104: "Remove failed",
+        105: "Allow failed",
+        106: "Abandoned",
+        107: "Block failed",
+    }
 
     @classmethod
     def GetFormatSpecification(cls):
@@ -139,6 +235,44 @@ class WinDefenderHistoryParser(
             return None
 
         return dfdatetime_filetime.Filetime(timestamp=filetime)
+
+    @classmethod
+    def _GetThreatAttribute(cls, threat_attributes, attribute_name):
+        """Retrieves a threat attribute by one of its known aliases.
+
+        Args:
+          threat_attributes (dict[str, object]): threat attributes by name.
+          attribute_name (str): canonical name of the attribute.
+
+        Returns:
+          object: attribute value or None if not available.
+        """
+        aliases = cls._THREAT_ATTRIBUTE_ALIASES.get(attribute_name, (attribute_name,))
+
+        for alias in aliases:
+            if alias in threat_attributes:
+                return threat_attributes[alias]
+
+        normalized_aliases = {cls._NormalizeAttributeName(alias) for alias in aliases}
+        for name, value in threat_attributes.items():
+            if cls._NormalizeAttributeName(name) in normalized_aliases:
+                return value
+
+        return None
+
+    @classmethod
+    def _NormalizeAttributeName(cls, attribute_name):
+        """Normalizes a threat attribute name for comparison.
+
+        Args:
+          attribute_name (str): threat attribute name.
+
+        Returns:
+          str: normalized attribute name.
+        """
+        return "".join(
+            character for character in attribute_name.lower() if character.isalnum()
+        )
 
     def _ReadThreatTrackingData(self, threat_tracking_data, file_offset):
         """Reads the threat tracking data.
@@ -347,29 +481,63 @@ class WinDefenderHistoryParser(
         ]
         event_data = WindowsDefenderHistoryEventData()
         event_data.additional_filenames = additional_filenames or None
-        event_data.category = threat_attributes.get("Category")
+        event_data.category = self._GetThreatAttribute(threat_attributes, "Category")
         event_data.container_filenames = container_files or None
         event_data.filename = filenames[0] or None
-        event_data.host_and_user = threat_attributes.get("Domain user1") or None
+        event_data.file_path = event_data.filename
+        event_data.host_and_user = (
+            self._GetThreatAttribute(threat_attributes, "Domain user1") or None
+        )
         event_data.initial_detection_time = self._GetDateTime(
-            threat_attributes.get("Initial detection time")
+            self._GetThreatAttribute(threat_attributes, "Initial detection time")
         )
         event_data.last_threat_status_change_time = self._GetDateTime(
-            threat_attributes.get("Last threat status change time")
+            self._GetThreatAttribute(
+                threat_attributes, "Last threat status change time"
+            )
         )
-        event_data.process = threat_attributes.get("Process name") or None
+        event_data.process = (
+            self._GetThreatAttribute(threat_attributes, "Process name") or None
+        )
+        quarantine_identifier = self._GetThreatAttribute(
+            threat_attributes, "Quarantine identifier"
+        )
+        if quarantine_identifier:
+            quarantine_identifier = str(quarantine_identifier).strip("{}")
+            if quarantine_identifier == "00000000-0000-0000-0000-000000000000":
+                quarantine_identifier = None
+
+        event_data.quarantine_identifier = quarantine_identifier or None
+        event_data.quarantine_id = event_data.quarantine_identifier
         event_data.recorded_time = self._GetDateTime(
-            threat_attributes.get("ThreatTrackingStartTime")
+            self._GetThreatAttribute(threat_attributes, "ThreatTrackingStartTime")
         )
-        event_data.remediation_account = threat_attributes.get("Domain user2") or None
+        event_data.remediation_account = (
+            self._GetThreatAttribute(threat_attributes, "Domain user2") or None
+        )
         event_data.remediation_time = self._GetDateTime(
-            threat_attributes.get("Remediation time")
+            self._GetThreatAttribute(threat_attributes, "Remediation time")
         )
-        event_data.severity = threat_attributes.get("Severity")
-        event_data.sha256 = threat_attributes.get("ThreatTrackingSha256") or None
-        event_data.threat_identifier = threat_attributes.get("Threat identifier")
-        event_data.threat_name = threat_attributes.get("Threat name") or None
-        event_data.threat_status = threat_attributes.get("Threat status")
+        event_data.severity = self._GetThreatAttribute(threat_attributes, "Severity")
+        event_data.sha256 = (
+            self._GetThreatAttribute(threat_attributes, "ThreatTrackingSha256") or None
+        )
+        event_data.threat_identifier = self._GetThreatAttribute(
+            threat_attributes, "Threat identifier"
+        )
+        event_data.threat_name = (
+            self._GetThreatAttribute(threat_attributes, "Threat name") or None
+        )
+        event_data.threat_status = self._GetThreatAttribute(
+            threat_attributes, "Threat status"
+        )
+        if isinstance(event_data.threat_status, int):
+            event_data.action_code = event_data.threat_status
+            event_data.action = self._THREAT_STATUS_ACTIONS.get(
+                event_data.threat_status, str(event_data.threat_status)
+            )
+            event_data.action_taken = event_data.action
+
         event_data.web_filenames = web_files or None
 
         parser_mediator.ProduceEventData(event_data)

@@ -252,6 +252,14 @@ plaso.parsers.winreg\_plugins.userassist module
    :show-inheritance:
    :undoc-members:
 
+plaso.parsers.winreg\_plugins.windefender module
+-------------------------------------------------
+
+.. automodule:: plaso.parsers.winreg_plugins.windefender
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 plaso.parsers.winreg\_plugins.windows\_version module
 -----------------------------------------------------
 

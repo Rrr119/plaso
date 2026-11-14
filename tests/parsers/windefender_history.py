@@ -34,6 +34,8 @@ class WinDefenderHistoryUnitTest(test_lib.ParserTestCase):
         self.assertEqual(number_of_warnings, 0)
 
         expected_event_values = {
+            "action": "Detected",
+            "action_code": 1,
             "additional_filenames": None,
             "category": 27,
             "container_filenames": None,
@@ -43,6 +45,7 @@ class WinDefenderHistoryUnitTest(test_lib.ParserTestCase):
             "initial_detection_time": "2022-07-22T05:32:27.6558959+00:00",
             "last_threat_status_change_time": "2022-07-22T05:32:28.5123912+00:00",
             "process": "C:\\Windows\\explorer.exe",
+            "quarantine_identifier": None,
             "recorded_time": "2022-07-22T05:32:27.8302783+00:00",
             "remediation_account": None,
             "remediation_time": None,
@@ -88,6 +91,8 @@ class WinDefenderHistoryUnitTest(test_lib.ParserTestCase):
         self.assertEqual(number_of_warnings, 0)
 
         expected_event_values = {
+            "action": "Quarantine failed",
+            "action_code": 103,
             "additional_filenames": None,
             "category": 42,
             "container_filenames": ["C:\\Users\\testuser\\Downloads\\eicar_com.zip"],
@@ -97,6 +102,7 @@ class WinDefenderHistoryUnitTest(test_lib.ParserTestCase):
             "initial_detection_time": "2022-07-22T05:36:18.9293722+00:00",
             "last_threat_status_change_time": "2022-07-22T05:37:02.7574371+00:00",
             "process": "Unknown",
+            "quarantine_identifier": None,
             "recorded_time": "2022-07-22T05:36:18.9094421+00:00",
             "remediation_account": "NT AUTHORITY\\SYSTEM",
             "remediation_time": "2022-07-22T05:37:02.7574371+00:00",
@@ -142,6 +148,8 @@ class WinDefenderHistoryUnitTest(test_lib.ParserTestCase):
         self.assertEqual(number_of_warnings, 0)
 
         expected_event_values = {
+            "action": "Quarantined",
+            "action_code": 3,
             "additional_filenames": None,
             "category": 42,
             "container_filenames": None,
@@ -151,6 +159,7 @@ class WinDefenderHistoryUnitTest(test_lib.ParserTestCase):
             "initial_detection_time": "2026-10-10T16:52:13.2022359+00:00",
             "last_threat_status_change_time": "2026-10-10T16:54:08.6242655+00:00",
             "process": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            "quarantine_identifier": "80008a1b-0000-0000-8adc-535939827cf6",
             "recorded_time": "2026-10-10T16:52:13.1718776+00:00",
             "remediation_account": "NT AUTHORITY\\SYSTEM",
             "remediation_time": "2026-10-10T16:54:08.6242655+00:00",
