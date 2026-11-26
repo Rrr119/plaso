@@ -7,6 +7,9 @@ from acstore.containers import interface
 from acstore.containers import manager
 
 from dfdatetime import interface as dfdatetime_interface
+from dfdatetime import posix_time as dfdatetime_posix_time
+
+from plaso.lib import time_zone as time_zone_helper
 
 
 def CalculateEventDataStreamHashAttributes(event_data_stream):
@@ -366,6 +369,8 @@ class EventObject(interface.AttributeContainer):
       timestamp (int): timestamp, which contains the number of microseconds
           since January 1, 1970, 00:00:00 UTC.
       timestamp_desc (str): description of the meaning of the timestamp.
+      time_zone (str): original time zone of the event.
+      time_zone_offset (int): original time zone offset in minutes from UTC.
     """
 
     CONTAINER_TYPE = "event"
@@ -400,10 +405,108 @@ class EventObject(interface.AttributeContainer):
         Returns:
           bool: True if the event attribute container is less than the other.
         """
-        return (
-            self.timestamp < other.timestamp
-            or self.timestamp_desc < other.timestamp_desc
+        if self.timestamp != other.timestamp:
+            return self.timestamp < other.timestamp
+
+        return (self.timestamp_desc or "") < (other.timestamp_desc or "")
+
+    def _GetTimeZoneDateTime(self):
+        """Retrieves date and time values that can store time zone information.
+
+        Returns:
+          dfdatetime.DateTimeValues: date and time values.
+        """
+        if not self.date_time:
+            self.date_time = dfdatetime_posix_time.PosixTimeInMicroseconds(
+                timestamp=self.timestamp or 0
+            )
+
+        return self.date_time
+
+    @property
+    def original_time_zone(self):
+        """str: original time zone of the event."""
+        return self.time_zone
+
+    @original_time_zone.setter
+    def original_time_zone(self, time_zone):
+        """Sets the original time zone of the event.
+
+        Args:
+          time_zone (str): original time zone of the event.
+        """
+        self.time_zone = time_zone
+
+    @property
+    def original_timezone(self):
+        """str: original time zone of the event."""
+        return self.time_zone
+
+    @original_timezone.setter
+    def original_timezone(self, time_zone):
+        """Sets the original time zone of the event.
+
+        Args:
+          time_zone (str): original time zone of the event.
+        """
+        self.time_zone = time_zone
+
+    @property
+    def time_zone(self):
+        """str: original time zone of the event."""
+        date_time = self.date_time
+        if not date_time:
+            return None
+
+        time_zone_hint = getattr(date_time, "time_zone_hint", None)
+        if time_zone_hint:
+            return time_zone_hint
+
+        time_zone_offset = getattr(date_time, "time_zone_offset", None)
+        if time_zone_offset is not None:
+            return time_zone_helper.FormatTimeZoneOffset(time_zone_offset)
+
+        return None
+
+    @time_zone.setter
+    def time_zone(self, time_zone):
+        """Sets the original time zone of the event.
+
+        Args:
+          time_zone (str): original time zone of the event.
+        """
+        self._GetTimeZoneDateTime().time_zone_hint = time_zone
+
+    @property
+    def time_zone_offset(self):
+        """int: original time zone offset in minutes from UTC."""
+        date_time = self.date_time
+        if not date_time:
+            return None
+
+        time_zone_offset = getattr(date_time, "time_zone_offset", None)
+        if time_zone_offset is not None:
+            return time_zone_offset
+
+        if self.timestamp is None:
+            return None
+
+        date_time = time_zone_helper.RestoreDateTime(
+            self.timestamp, self.time_zone, None
         )
+        if not date_time:
+            return None
+
+        return int(date_time.utcoffset().total_seconds() / 60)
+
+    @time_zone_offset.setter
+    def time_zone_offset(self, time_zone_offset):
+        """Sets the original time zone offset of the event.
+
+        Args:
+          time_zone_offset (int): original time zone offset in minutes from UTC.
+        """
+        self._GetTimeZoneDateTime().time_zone_offset = time_zone_offset
 
     def GetEventDataIdentifier(self):
         """Retrieves the identifier of the associated event data.
@@ -416,6 +519,33 @@ class EventObject(interface.AttributeContainer):
         """
         return self._event_data_identifier
 
+    def GetOriginalDateTime(self):
+        """Retrieves the date and time in the original time zone.
+
+        Returns:
+          datetime.datetime: date and time in the original time zone or None if
+              not available.
+        """
+        return time_zone_helper.RestoreDateTime(
+            self.timestamp, self.time_zone, self.time_zone_offset
+        )
+
+    def GetOriginalTimeZone(self):
+        """Retrieves the original time zone of the event.
+
+        Returns:
+          str: original time zone of the event.
+        """
+        return self.time_zone
+
+    def GetTimeZone(self):
+        """Retrieves the original time zone of the event.
+
+        Returns:
+          str: original time zone of the event.
+        """
+        return self.time_zone
+
     def SetEventDataIdentifier(self, event_data_identifier):
         """Sets the identifier of the associated event data.
 
@@ -427,6 +557,30 @@ class EventObject(interface.AttributeContainer):
               identifier.
         """
         self._event_data_identifier = event_data_identifier
+
+    def SetOriginalTimeZone(self, time_zone):
+        """Sets the original time zone of the event.
+
+        Args:
+          time_zone (str): original time zone of the event.
+        """
+        self.time_zone = time_zone
+
+    def SetTimeZone(self, time_zone):
+        """Sets the original time zone of the event.
+
+        Args:
+          time_zone (str): original time zone of the event.
+        """
+        self.time_zone = time_zone
+
+    def SetTimeZoneOffset(self, time_zone_offset):
+        """Sets the original time zone offset of the event.
+
+        Args:
+          time_zone_offset (int): original time zone offset in minutes from UTC.
+        """
+        self.time_zone_offset = time_zone_offset
 
 
 class EventTag(interface.AttributeContainer):

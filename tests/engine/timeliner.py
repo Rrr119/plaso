@@ -367,6 +367,78 @@ class EventDataTimelinerTest(test_lib.EngineTestCase):
         self.assertEqual(event.date_time.year, 4)
         self.assertEqual(event.timestamp, -62035818808570124)
 
+    def testGetEventWithThreeTimeZones(self):
+        """Tests time zone normalization and traceability across three sources."""
+        event_data_timeliner = timeliner.EventDataTimeliner(
+            data_location=shared_test_lib.TEST_DATA_PATH
+        )
+
+        storage_writer = fake_writer.FakeStorageWriter()
+        storage_writer.Open()
+
+        test_values = [
+            (
+                "Europe/Berlin",
+                (2024, 7, 15, 15, 30, 0),
+                1721050200000000,
+                "2024-07-15 15:30:00+0200",
+            ),
+            (
+                "Asia/Tokyo",
+                (2024, 7, 15, 15, 0, 0),
+                1721023200000000,
+                "2024-07-15 15:00:00+0900",
+            ),
+            (
+                "America/New_York",
+                (2024, 7, 15, 8, 0, 0),
+                1721044800000000,
+                "2024-07-15 08:00:00-0400",
+            ),
+        ]
+        expected_date_time_strings = {
+            time_zone_name: date_time_string
+            for time_zone_name, _, _, date_time_string in test_values
+        }
+
+        try:
+            for time_zone_name, time_elements_tuple, _, _ in test_values:
+                event_data = TestEventData1()
+                event_data.time_zone = time_zone_name
+                event_data.value = time_zone_name
+                storage_writer.AddAttributeContainer(event_data)
+
+                date_time = dfdatetime_time_elements.TimeElementsInMicroseconds(
+                    time_elements_tuple=(*time_elements_tuple, 0)
+                )
+                date_time.is_local_time = True
+
+                event = event_data_timeliner._GetEvent(
+                    storage_writer, event_data, None, date_time, "Test Time"
+                )
+                storage_writer.AddAttributeContainer(event)
+
+            test_events = list(storage_writer.GetSortedEvents())
+
+        finally:
+            storage_writer.Close()
+
+        self.assertEqual(
+            [event.timestamp for event in test_events],
+            [1721023200000000, 1721044800000000, 1721050200000000],
+        )
+        self.assertEqual(
+            [event.time_zone for event in test_events],
+            ["Asia/Tokyo", "America/New_York", "Europe/Berlin"],
+        )
+        self.assertEqual(
+            [
+                event.GetOriginalDateTime().strftime("%Y-%m-%d %H:%M:%S%z")
+                for event in test_events
+            ],
+            [expected_date_time_strings[event.time_zone] for event in test_events],
+        )
+
     def testProduceTimeliningWarning(self):
         """Tests the _ProduceTimeliningWarning function."""
         event_data_timeliner = timeliner.EventDataTimeliner(

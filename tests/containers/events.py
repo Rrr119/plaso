@@ -133,6 +133,30 @@ class EventDataStreamTest(shared_test_lib.BaseTestCase):
 class EventObjectTest(shared_test_lib.BaseTestCase):
     """Tests for the event attribute container."""
 
+    def testGetOriginalDateTime(self):
+        """Tests the GetOriginalDateTime function."""
+        attribute_container = events.EventObject()
+        attribute_container.timestamp = 1721044800000000
+        attribute_container.time_zone = "America/New_York"
+        attribute_container.time_zone_offset = -240
+
+        date_time = attribute_container.GetOriginalDateTime()
+
+        self.assertEqual(
+            date_time.strftime("%Y-%m-%d %H:%M:%S%z"),
+            "2024-07-15 08:00:00-0400",
+        )
+
+    def testOriginalTimeZone(self):
+        """Tests the original_time_zone property."""
+        attribute_container = events.EventObject()
+
+        attribute_container.original_time_zone = "Asia/Tokyo"
+
+        self.assertEqual(attribute_container.original_time_zone, "Asia/Tokyo")
+        self.assertEqual(attribute_container.original_timezone, "Asia/Tokyo")
+        self.assertEqual(attribute_container.GetOriginalTimeZone(), "Asia/Tokyo")
+
     def testGetAttributeNames(self):
         """Tests the GetAttributeNames function."""
         attribute_container = events.EventObject()

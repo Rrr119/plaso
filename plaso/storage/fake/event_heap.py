@@ -2,6 +2,8 @@
 
 import heapq
 
+from plaso.lib import timeline
+
 
 class EventHeap:
     """Event heap."""
@@ -23,8 +25,7 @@ class EventHeap:
           EventObject: event.
         """
         try:
-            _, _, _, _, event = heapq.heappop(self._heap)
-            return event
+            return heapq.heappop(self._heap)[-1]
 
         except IndexError:
             return None
@@ -49,8 +50,7 @@ class EventHeap:
         """
         event_string = event.GetAttributeValuesString()
         heap_values = (
-            event.timestamp,
-            event.timestamp_desc,
+            *timeline.GetEventSortKey(event),
             event_index,
             event_string,
             event,

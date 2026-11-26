@@ -448,7 +448,7 @@ class SQLiteStorageFile(sqlite_store.SQLiteAttributeContainerStore):
             self._CONTAINER_TYPE_EVENT,
             column_names=column_names,
             filter_expression=filter_expression,
-            order_by="timestamp",
+            order_by="timestamp, timestamp_desc, _identifier",
         )
 
     def PrefetchAttributeContainers(self, container_type, indexes):

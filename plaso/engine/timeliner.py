@@ -14,6 +14,7 @@ from plaso.containers import events
 from plaso.containers import warnings
 from plaso.engine import yaml_timeliner_file
 from plaso.lib import definitions
+from plaso.lib import time_zone as time_zone_helper
 
 
 class EventDataTimeliner:
@@ -342,59 +343,45 @@ class EventDataTimeliner:
 
         else:
             if date_time.is_local_time:
-                time_zone = None
-                if date_time.time_zone_hint:
-                    time_zone = self._time_zones_per_hint.get(date_time.time_zone_hint)
-                    if not time_zone:
-                        try:
-                            time_zone = pytz.timezone(date_time.time_zone_hint)
-                            self._time_zones_per_hint[date_time.time_zone_hint] = (
-                                time_zone
-                            )
-                        except pytz.UnknownTimeZoneError:
-                            message = (
-                                f"unsupported time zone hint: "
-                                f"{date_time.time_zone_hint:s}, using default time zone"
-                            )
-                            self._ProduceTimeliningWarning(
-                                storage_writer,
-                                event_data,
-                                message,
-                            )
+                time_zone = self._GetTimeZone(
+                    storage_writer, event_data, event_data_stream, date_time
+                )
 
-                if not time_zone and event_data_stream:
-                    try:
-                        time_zone = self._GetTimeZoneByPathSpec(
-                            event_data_stream.path_spec
-                        )
-                    except pytz.UnknownTimeZoneError:
-                        message = (
-                            f"unsupported system time zone: "
-                            f"{date_time.time_zone_hint:s}, using default time zone"
-                        )
-                        self._ProduceTimeliningWarning(
-                            storage_writer,
-                            event_data,
-                            message,
-                        )
-
-                if not time_zone:
-                    time_zone = self._preferred_time_zone or self._DEFAULT_TIME_ZONE
+                timestamp, time_zone_name, time_zone_offset = (
+                    time_zone_helper.NormalizeDateTime(
+                        date_time, time_zone=time_zone, timestamp=timestamp
+                    )
+                )
 
                 date_time = copy.copy(date_time)
                 date_time.is_local_time = False
 
-                if time_zone != pytz.UTC:
-                    datetime_object = datetime.datetime(
-                        1970, 1, 1, 0, 0, 0, 0, tzinfo=None
+                if time_zone_name:
+                    date_time.time_zone_hint = time_zone_name
+
+                if time_zone_offset is not None:
+                    date_time.time_zone_offset = time_zone_offset
+
+            else:
+                time_zone = time_zone_helper.GetTimeZoneFromString(
+                    date_time.time_zone_hint
+                )
+
+                event_data_time_zone = getattr(event_data, "time_zone", None)
+                if not time_zone and event_data_time_zone:
+                    time_zone = time_zone_helper.GetTimeZoneFromString(
+                        event_data_time_zone
                     )
-                    datetime_object += datetime.timedelta(microseconds=timestamp)
 
-                    datetime_delta = time_zone.utcoffset(datetime_object, is_dst=False)
-                    seconds_delta = int(datetime_delta.total_seconds())
-                    timestamp -= seconds_delta * definitions.MICROSECONDS_PER_SECOND
+                timestamp, time_zone_name, time_zone_offset = (
+                    time_zone_helper.NormalizeDateTime(
+                        date_time, time_zone=time_zone, timestamp=timestamp
+                    )
+                )
 
-                    date_time.time_zone_offset = seconds_delta // 60
+                if time_zone_name and not date_time.time_zone_hint:
+                    date_time = copy.copy(date_time)
+                    date_time.time_zone_hint = time_zone_name
 
         event = events.EventObject()
         event.date_time = date_time
@@ -405,6 +392,71 @@ class EventDataTimeliner:
         event.SetEventDataIdentifier(event_data_identifier)
 
         return event
+
+    def _GetTimeZone(self, storage_writer, event_data, event_data_stream, date_time):
+        """Retrieves the time zone for date and time values.
+
+        Args:
+          storage_writer (StorageWriter): storage writer.
+          event_data (EventData): event data.
+          event_data_stream (EventDataStream): event data stream.
+          date_time (dfdatetime.DateTimeValues): date and time values.
+
+        Returns:
+          datetime.tzinfo: time zone.
+        """
+        time_zone = None
+        time_zone_hint = date_time.time_zone_hint
+        if time_zone_hint:
+            time_zone = self._time_zones_per_hint.get(time_zone_hint)
+            if not time_zone:
+                time_zone = time_zone_helper.GetTimeZoneFromString(time_zone_hint)
+                if time_zone:
+                    self._time_zones_per_hint[time_zone_hint] = time_zone
+                else:
+                    message = (
+                        f"unsupported time zone hint: {time_zone_hint:s}, "
+                        f"using default time zone"
+                    )
+                    self._ProduceTimeliningWarning(
+                        storage_writer,
+                        event_data,
+                        message,
+                    )
+
+        if not time_zone:
+            event_data_time_zone = getattr(event_data, "time_zone", None)
+            if event_data_time_zone:
+                time_zone = time_zone_helper.GetTimeZoneFromString(event_data_time_zone)
+                if not time_zone:
+                    message = (
+                        f"unsupported event data time zone: "
+                        f"{event_data_time_zone!s}, using default time zone"
+                    )
+                    self._ProduceTimeliningWarning(
+                        storage_writer,
+                        event_data,
+                        message,
+                    )
+
+        if not time_zone and event_data_stream:
+            try:
+                time_zone = self._GetTimeZoneByPathSpec(event_data_stream.path_spec)
+            except pytz.UnknownTimeZoneError:
+                message = (
+                    f"unsupported system time zone: {time_zone_hint!s}, "
+                    f"using default time zone"
+                )
+                self._ProduceTimeliningWarning(
+                    storage_writer,
+                    event_data,
+                    message,
+                )
+
+        if not time_zone:
+            time_zone = self._preferred_time_zone or self._DEFAULT_TIME_ZONE
+
+        return time_zone
 
     def _GetTimeZoneByPathSpec(self, path_spec):
         """Retrieves a time zone for a specific path specification.
